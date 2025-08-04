@@ -166,26 +166,75 @@
             background: linear-gradient(45deg, #ffa726, #ff9800);
         }
 
-        .theme-selector {
-            margin-bottom: 30px;
+        .theme-bubble {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .theme-toggle {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .theme-toggle:hover {
+            transform: scale(1.1);
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .theme-panel {
+            position: absolute;
+            top: 70px;
+            right: 0;
+            min-width: 300px;
             padding: 20px;
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(15px);
             border-radius: 15px;
             border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: all 0.3s ease;
+        }
+
+        .theme-panel.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .theme-panel h3 {
+            margin: 0 0 15px 0;
+            font-size: 1.1em;
+            font-weight: 600;
         }
 
         .theme-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
-            gap: 10px;
-            margin-bottom: 15px;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-bottom: 20px;
         }
 
         .theme-option {
             width: 100%;
-            height: 50px;
+            height: 40px;
             border: 2px solid transparent;
-            border-radius: 10px;
+            border-radius: 8px;
             cursor: pointer;
             transition: all 0.3s ease;
             position: relative;
@@ -199,7 +248,7 @@
 
         .theme-option.active {
             border-color: white;
-            box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
         }
 
         .theme-option.ocean { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
@@ -210,11 +259,16 @@
         .theme-option.fire { background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%); }
         .theme-option.midnight { background: linear-gradient(135deg, #232526 0%, #414345 100%); }
 
+        .custom-divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.2);
+            margin: 15px 0;
+        }
+
         .custom-color-inputs {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 15px;
-            margin-top: 15px;
         }
 
         .color-input-group {
@@ -224,15 +278,16 @@
         }
 
         .color-input-group label {
-            font-size: 0.9em;
+            font-size: 0.85em;
             margin-bottom: 8px;
+            opacity: 0.9;
         }
 
         input[type="color"] {
-            width: 50px;
-            height: 50px;
+            width: 40px;
+            height: 40px;
             border: none;
-            border-radius: 10px;
+            border-radius: 8px;
             cursor: pointer;
             background: none;
         }
@@ -243,7 +298,7 @@
 
         input[type="color"]::-webkit-color-swatch {
             border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 8px;
+            border-radius: 6px;
         }
             margin-top: 30px;
             padding: 20px;
@@ -286,11 +341,10 @@
 <body>
     <div class="invisible-area" id="invisibleArea"></div>
     
-    <div class="container">
-        <h1>🖱️ Mouse Jiggler</h1>
-        
-        <div class="theme-selector">
-            <label style="font-weight: 600; margin-bottom: 15px; display: block;">Background Theme</label>
+    <div class="theme-bubble">
+        <div class="theme-toggle" id="themeToggle">🎨</div>
+        <div class="theme-panel" id="themePanel">
+            <h3>Background Themes</h3>
             <div class="theme-grid">
                 <div class="theme-option ocean active" data-theme="ocean" title="Ocean"></div>
                 <div class="theme-option sunset" data-theme="sunset" title="Sunset"></div>
@@ -300,6 +354,7 @@
                 <div class="theme-option fire" data-theme="fire" title="Fire"></div>
                 <div class="theme-option midnight" data-theme="midnight" title="Midnight"></div>
             </div>
+            <div class="custom-divider"></div>
             <div class="custom-color-inputs">
                 <div class="color-input-group">
                     <label for="color1">Start Color</label>
@@ -311,6 +366,10 @@
                 </div>
             </div>
         </div>
+    </div>
+    
+    <div class="container">
+        <h1>🖱️ Mouse Jiggler</h1>
         
         <div class="status inactive" id="status">
             Inactive - Click Start to begin
@@ -374,6 +433,26 @@
         const invisibleArea = document.getElementById('invisibleArea');
         const color1Input = document.getElementById('color1');
         const color2Input = document.getElementById('color2');
+        const themeToggle = document.getElementById('themeToggle');
+        const themePanel = document.getElementById('themePanel');
+
+        // Theme bubble toggle
+        themeToggle.addEventListener('click', function(e) {
+            e.stopPropagation();
+            themePanel.classList.toggle('active');
+        });
+
+        // Close theme panel when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!themePanel.contains(e.target) && !themeToggle.contains(e.target)) {
+                themePanel.classList.remove('active');
+            }
+        });
+
+        // Prevent panel from closing when clicking inside it
+        themePanel.addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
 
         // Theme handling
         document.querySelectorAll('.theme-option').forEach(option => {
@@ -449,6 +528,9 @@
             }
         }
 
+        // Initialize theme on page load
+        loadSavedTheme();
+
         // Update slider value displays
         intervalSlider.addEventListener('input', function() {
             intervalValue.textContent = this.value + ' seconds';
@@ -499,35 +581,103 @@
         function jiggleMouse() {
             const distance = parseInt(distanceSlider.value);
             
-            // Create a temporary element to trigger mouse events
+            // Multiple methods to ensure activity detection
+            
+            // Method 1: Create and move a temporary invisible element
             const tempEl = document.createElement('div');
             tempEl.style.position = 'fixed';
-            tempEl.style.left = Math.random() * window.innerWidth + 'px';
-            tempEl.style.top = Math.random() * window.innerHeight + 'px';
+            tempEl.style.left = '-1px';
+            tempEl.style.top = '-1px';
             tempEl.style.width = '1px';
             tempEl.style.height = '1px';
-            tempEl.style.pointerEvents = 'none';
-            tempEl.style.zIndex = '-1';
+            tempEl.style.pointerEvents = 'auto';
+            tempEl.style.zIndex = '9999';
+            tempEl.style.opacity = '0';
             document.body.appendChild(tempEl);
             
-            // Simulate mouse movement by triggering mousemove events
-            const event = new MouseEvent('mousemove', {
-                clientX: Math.random() * window.innerWidth,
-                clientY: Math.random() * window.innerHeight,
-                bubbles: true
+            // Method 2: Multiple mousemove events with different coordinates
+            const events = [];
+            for (let i = 0; i < 3; i++) {
+                const x = Math.max(1, Math.min(window.innerWidth - 1, Math.random() * window.innerWidth));
+                const y = Math.max(1, Math.min(window.innerHeight - 1, Math.random() * window.innerHeight));
+                
+                events.push(new MouseEvent('mousemove', {
+                    clientX: x,
+                    clientY: y,
+                    screenX: x,
+                    screenY: y,
+                    bubbles: true,
+                    cancelable: true,
+                    view: window
+                }));
+            }
+            
+            // Dispatch events with slight delays
+            events.forEach((event, index) => {
+                setTimeout(() => {
+                    document.dispatchEvent(event);
+                    tempEl.dispatchEvent(event);
+                    
+                    // Also dispatch on the body and container
+                    document.body.dispatchEvent(event);
+                    if (document.querySelector('.container')) {
+                        document.querySelector('.container').dispatchEvent(event);
+                    }
+                }, index * 50);
             });
             
-            document.dispatchEvent(event);
+            // Method 3: Focus and blur events to simulate activity
+            if (document.activeElement && document.activeElement !== document.body) {
+                document.activeElement.blur();
+                setTimeout(() => {
+                    if (document.activeElement) {
+                        document.activeElement.focus();
+                    }
+                }, 100);
+            }
             
-            // Clean up
+            // Method 4: Keyboard events (very subtle)
+            const keyEvent = new KeyboardEvent('keydown', {
+                key: 'F15', // F15 is rarely used and shouldn't interfere
+                code: 'F15',
+                bubbles: true,
+                cancelable: true
+            });
+            document.dispatchEvent(keyEvent);
+            
+            // Method 5: Mouse down/up sequence
+            setTimeout(() => {
+                const mouseDown = new MouseEvent('mousedown', {
+                    clientX: 1,
+                    clientY: 1,
+                    button: 0,
+                    bubbles: true
+                });
+                const mouseUp = new MouseEvent('mouseup', {
+                    clientX: 1,
+                    clientY: 1,
+                    button: 0,
+                    bubbles: true
+                });
+                
+                tempEl.dispatchEvent(mouseDown);
+                setTimeout(() => {
+                    tempEl.dispatchEvent(mouseUp);
+                }, 10);
+            }, 150);
+            
+            // Clean up temporary element
             setTimeout(() => {
                 if (tempEl.parentNode) {
                     tempEl.parentNode.removeChild(tempEl);
                 }
-            }, 100);
+            }, 500);
             
             jigglesPerformed++;
             jigglesCount.textContent = jigglesPerformed;
+            
+            // Log activity for debugging
+            console.log(`Jiggle #${jigglesPerformed} at ${new Date().toLocaleTimeString()}`);
         }
 
         function updateUptime() {
