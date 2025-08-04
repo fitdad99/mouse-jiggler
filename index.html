@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mouse Jiggler</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            text-align: center;
+            min-width: 400px;
+        }
+
+        h1 {
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            font-weight: 300;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .status {
+            margin-bottom: 30px;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 1.2em;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .status.inactive {
+            background: rgba(255, 107, 107, 0.2);
+            border: 1px solid rgba(255, 107, 107, 0.5);
+        }
+
+        .status.active {
+            background: rgba(76, 217, 100, 0.2);
+            border: 1px solid rgba(76, 217, 100, 0.5);
+        }
+
+        .controls {
+            margin-bottom: 30px;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.2);
+            outline: none;
+            margin-bottom: 5px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: white;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: white;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .range-value {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        button {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            color: white;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            margin: 0 10px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button.stop {
+            background: linear-gradient(45deg, #ffa726, #ff9800);
+        }
+
+        .info {
+            margin-top: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            font-size: 0.9em;
+            line-height: 1.6;
+        }
+
+        .stats {
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .stat-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .invisible-area {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+        }
+    </style>
+</head>
+<body>
+    <div class="invisible-area" id="invisibleArea"></div>
+    
+    <div class="container">
+        <h1>🖱️ Mouse Jiggler</h1>
+        
+        <div class="status inactive" id="status">
+            Inactive - Click Start to begin
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="interval">Jiggle Interval (seconds)</label>
+                <input type="range" id="interval" min="5" max="300" value="30">
+                <div class="range-value" id="intervalValue">30 seconds</div>
+            </div>
+
+            <div class="control-group">
+                <label for="distance">Movement Distance (pixels)</label>
+                <input type="range" id="distance" min="1" max="10" value="3">
+                <div class="range-value" id="distanceValue">3 pixels</div>
+            </div>
+        </div>
+
+        <div>
+            <button id="startBtn" onclick="startJiggler()">Start Jiggling</button>
+            <button id="stopBtn" class="stop" onclick="stopJiggler()" style="display: none;">Stop</button>
+        </div>
+
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-value" id="jigglesCount">0</div>
+                <div>Jiggles Performed</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="uptime">00:00:00</div>
+                <div>Active Time</div>
+            </div>
+        </div>
+
+        <div class="info">
+            <strong>How it works:</strong><br>
+            This tool simulates tiny mouse movements to prevent your computer from going to sleep or activating screensavers. 
+            No installation required - just run in your browser!<br><br>
+            <strong>Note:</strong> Keep this browser tab active and visible for best results.
+        </div>
+    </div>
+
+    <script>
+        let jiggleInterval;
+        let uptimeInterval;
+        let startTime;
+        let jigglesPerformed = 0;
+        let isActive = false;
+
+        const statusEl = document.getElementById('status');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const intervalSlider = document.getElementById('interval');
+        const distanceSlider = document.getElementById('distance');
+        const intervalValue = document.getElementById('intervalValue');
+        const distanceValue = document.getElementById('distanceValue');
+        const jigglesCount = document.getElementById('jigglesCount');
+        const uptime = document.getElementById('uptime');
+        const invisibleArea = document.getElementById('invisibleArea');
+
+        // Update slider value displays
+        intervalSlider.addEventListener('input', function() {
+            intervalValue.textContent = this.value + ' seconds';
+        });
+
+        distanceSlider.addEventListener('input', function() {
+            distanceValue.textContent = this.value + ' pixels';
+        });
+
+        function startJiggler() {
+            if (isActive) return;
+            
+            isActive = true;
+            startTime = Date.now();
+            jigglesPerformed = 0;
+            
+            statusEl.textContent = 'Active - Mouse jiggling every ' + intervalSlider.value + ' seconds';
+            statusEl.className = 'status active';
+            
+            startBtn.style.display = 'none';
+            stopBtn.style.display = 'inline-block';
+            
+            // Start jiggling
+            jiggleInterval = setInterval(jiggleMouse, intervalSlider.value * 1000);
+            
+            // Start uptime counter
+            uptimeInterval = setInterval(updateUptime, 1000);
+            
+            // Initial jiggle
+            jiggleMouse();
+        }
+
+        function stopJiggler() {
+            if (!isActive) return;
+            
+            isActive = false;
+            
+            clearInterval(jiggleInterval);
+            clearInterval(uptimeInterval);
+            
+            statusEl.textContent = 'Inactive - Click Start to begin';
+            statusEl.className = 'status inactive';
+            
+            startBtn.style.display = 'inline-block';
+            stopBtn.style.display = 'none';
+        }
+
+        function jiggleMouse() {
+            const distance = parseInt(distanceSlider.value);
+            
+            // Create a temporary element to trigger mouse events
+            const tempEl = document.createElement('div');
+            tempEl.style.position = 'fixed';
+            tempEl.style.left = Math.random() * window.innerWidth + 'px';
+            tempEl.style.top = Math.random() * window.innerHeight + 'px';
+            tempEl.style.width = '1px';
+            tempEl.style.height = '1px';
+            tempEl.style.pointerEvents = 'none';
+            tempEl.style.zIndex = '-1';
+            document.body.appendChild(tempEl);
+            
+            // Simulate mouse movement by triggering mousemove events
+            const event = new MouseEvent('mousemove', {
+                clientX: Math.random() * window.innerWidth,
+                clientY: Math.random() * window.innerHeight,
+                bubbles: true
+            });
+            
+            document.dispatchEvent(event);
+            
+            // Clean up
+            setTimeout(() => {
+                if (tempEl.parentNode) {
+                    tempEl.parentNode.removeChild(tempEl);
+                }
+            }, 100);
+            
+            jigglesPerformed++;
+            jigglesCount.textContent = jigglesPerformed;
+        }
+
+        function updateUptime() {
+            if (!isActive) return;
+            
+            const elapsed = Date.now() - startTime;
+            const hours = Math.floor(elapsed / 3600000);
+            const minutes = Math.floor((elapsed % 3600000) / 60000);
+            const seconds = Math.floor((elapsed % 60000) / 1000);
+            
+            uptime.textContent = 
+                String(hours).padStart(2, '0') + ':' +
+                String(minutes).padStart(2, '0') + ':' +
+                String(seconds).padStart(2, '0');
+        }
+
+        // Prevent the page from being put to sleep
+        let wakeLock = null;
+
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                }
+            } catch (err) {
+                // Wake lock not supported or failed
+                console.log('Wake lock not available');
+            }
+        }
+
+        // Try to request wake lock when starting
+        startBtn.addEventListener('click', requestWakeLock);
+
+        // Handle visibility change
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && isActive && !wakeLock) {
+                requestWakeLock();
+            }
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (isActive) {
+                    stopJiggler();
+                } else {
+                    startJiggler();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
