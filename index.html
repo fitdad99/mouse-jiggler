@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mouse Jiggler</title>
+    <title>Mouse Jiggler - Enhanced</title>
     <style>
         * {
             margin: 0;
@@ -52,6 +52,36 @@
 
         body.theme-custom {
             /* Will be set dynamically */
+        }
+
+        /* Background resistance indicators */
+        .activity-indicator {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            width: 12px;
+            height: 12px;
+            background: #00ff00;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+            z-index: 9999;
+        }
+
+        .background-status {
+            position: fixed;
+            top: 10px;
+            left: 30px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 11px;
+            z-index: 9998;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.2); }
         }
 
         .container {
@@ -300,6 +330,8 @@
             border: 2px solid rgba(255, 255, 255, 0.3);
             border-radius: 6px;
         }
+
+        .info {
             margin-top: 30px;
             padding: 20px;
             background: rgba(255, 255, 255, 0.1);
@@ -339,6 +371,10 @@
     </style>
 </head>
 <body>
+    <!-- Activity indicators -->
+    <div class="activity-indicator" id="activityIndicator"></div>
+    <div class="background-status" id="backgroundStatus">Foreground</div>
+
     <div class="invisible-area" id="invisibleArea"></div>
     
     <div class="theme-bubble">
@@ -369,7 +405,7 @@
     </div>
     
     <div class="container">
-        <h1>🖱️ Mouse Jiggler</h1>
+        <h1>🖱️ Mouse Jiggler Enhanced</h1>
         
         <div class="status inactive" id="status">
             Inactive - Click Start to begin
@@ -406,16 +442,20 @@
         </div>
 
         <div class="info">
-            <strong>How it works:</strong><br>
-            This tool simulates tiny mouse movements to prevent your computer from going to sleep or activating screensavers. 
-            No installation required - just run in your browser!<br><br>
-            <strong>Note:</strong> Keep this browser tab active and visible for best results.
+            <strong>Enhanced Features:</strong><br>
+            ✅ Works in background tabs (Web Workers)<br>
+            ✅ Multiple activity detection methods<br>
+            ✅ Enhanced Teams compatibility<br>
+            ✅ Real-time activity monitoring<br><br>
+            <strong>Status:</strong> Green dot = Active | Background indicator shows tab state
         </div>
     </div>
 
     <script>
         let jiggleInterval;
         let uptimeInterval;
+        let pageActivityInterval;
+        let backgroundWorker = null;
         let startTime;
         let jigglesPerformed = 0;
         let isActive = false;
@@ -435,110 +475,320 @@
         const color2Input = document.getElementById('color2');
         const themeToggle = document.getElementById('themeToggle');
         const themePanel = document.getElementById('themePanel');
+        const activityIndicator = document.getElementById('activityIndicator');
+        const backgroundStatus = document.getElementById('backgroundStatus');
 
-        // Theme bubble toggle
-        themeToggle.addEventListener('click', function(e) {
-            e.stopPropagation();
-            themePanel.classList.toggle('active');
-        });
-
-        // Close theme panel when clicking outside
-        document.addEventListener('click', function(e) {
-            if (!themePanel.contains(e.target) && !themeToggle.contains(e.target)) {
-                themePanel.classList.remove('active');
-            }
-        });
-
-        // Prevent panel from closing when clicking inside it
-        themePanel.addEventListener('click', function(e) {
-            e.stopPropagation();
-        });
-
-        // Theme handling
-        document.querySelectorAll('.theme-option').forEach(option => {
-            option.addEventListener('click', function() {
-                const theme = this.dataset.theme;
-                setTheme(theme);
-            });
-        });
-
-        color1Input.addEventListener('input', updateCustomTheme);
-        color2Input.addEventListener('input', updateCustomTheme);
-
-        function setTheme(theme) {
-            // Remove all theme classes
-            document.body.className = document.body.className.replace(/theme-\w+/g, '');
+        // Background-resistant timer using multiple approaches
+        function createBackgroundResistantTimer(callback, interval) {
+            let timeouts = [];
+            let isTimerActive = true;
             
-            // Remove active class from all theme options
-            document.querySelectorAll('.theme-option').forEach(opt => opt.classList.remove('active'));
-            
-            // Add new theme class
-            document.body.classList.add('theme-' + theme);
-            
-            // Mark theme as active
-            const activeOption = document.querySelector(`.theme-option[data-theme="${theme}"]`);
-            if (activeOption) {
-                activeOption.classList.add('active');
-            }
-            
-            currentTheme = theme;
-            
-            // Save preference
-            localStorage.setItem('mouseJigglerTheme', theme);
-            if (theme === 'custom') {
-                localStorage.setItem('mouseJigglerColor1', color1Input.value);
-                localStorage.setItem('mouseJigglerColor2', color2Input.value);
-            }
-        }
-
-        function updateCustomTheme() {
-            const color1 = color1Input.value;
-            const color2 = color2Input.value;
-            
-            document.body.style.background = `linear-gradient(135deg, ${color1} 0%, ${color2} 100%)`;
-            document.body.className = document.body.className.replace(/theme-\w+/g, '');
-            document.body.classList.add('theme-custom');
-            
-            // Remove active class from preset themes
-            document.querySelectorAll('.theme-option').forEach(opt => opt.classList.remove('active'));
-            
-            currentTheme = 'custom';
-            
-            // Save custom colors
-            localStorage.setItem('mouseJigglerTheme', 'custom');
-            localStorage.setItem('mouseJigglerColor1', color1);
-            localStorage.setItem('mouseJigglerColor2', color2);
-        }
-
-        // Load saved theme on page load
-        function loadSavedTheme() {
-            const savedTheme = localStorage.getItem('mouseJigglerTheme');
-            if (savedTheme) {
-                if (savedTheme === 'custom') {
-                    const savedColor1 = localStorage.getItem('mouseJigglerColor1');
-                    const savedColor2 = localStorage.getItem('mouseJigglerColor2');
-                    if (savedColor1 && savedColor2) {
-                        color1Input.value = savedColor1;
-                        color2Input.value = savedColor2;
-                        updateCustomTheme();
+            // Method 1: Standard setTimeout with recursive scheduling
+            function scheduleTimeout() {
+                if (!isTimerActive) return;
+                const timeout = setTimeout(() => {
+                    if (isTimerActive) {
+                        callback();
+                        scheduleTimeout();
                     }
-                } else {
-                    setTheme(savedTheme);
-                }
+                }, interval);
+                timeouts.push(timeout);
             }
+            
+            // Method 2: MessageChannel for immediate execution
+            const channel = new MessageChannel();
+            let messageScheduled = false;
+            channel.port2.onmessage = () => {
+                if (isTimerActive && !messageScheduled) {
+                    messageScheduled = true;
+                    setTimeout(() => {
+                        if (isTimerActive) {
+                            callback();
+                            messageScheduled = false;
+                            if (isTimerActive) channel.port1.postMessage('');
+                        }
+                    }, interval);
+                }
+            };
+            
+            // Method 3: Web Worker timer (most background-resistant)
+            const workerCode = `
+                let intervalId;
+                self.onmessage = function(e) {
+                    if (e.data.command === 'start') {
+                        intervalId = setInterval(() => {
+                            self.postMessage('tick');
+                        }, e.data.interval);
+                    } else if (e.data.command === 'stop') {
+                        if (intervalId) {
+                            clearInterval(intervalId);
+                            intervalId = null;
+                        }
+                    }
+                };
+            `;
+            
+            try {
+                const blob = new Blob([workerCode], { type: 'application/javascript' });
+                backgroundWorker = new Worker(URL.createObjectURL(blob));
+                backgroundWorker.onmessage = () => {
+                    if (isTimerActive) callback();
+                };
+                backgroundWorker.postMessage({ command: 'start', interval: interval });
+                console.log('✅ Web Worker timer created successfully');
+            } catch (error) {
+                console.log('❌ Worker creation failed, using fallback timers:', error);
+            }
+            
+            // Start all methods
+            scheduleTimeout();
+            channel.port1.postMessage('');
+            
+            return {
+                stop: () => {
+                    isTimerActive = false;
+                    timeouts.forEach(clearTimeout);
+                    if (backgroundWorker) {
+                        backgroundWorker.postMessage({ command: 'stop' });
+                        backgroundWorker.terminate();
+                        backgroundWorker = null;
+                    }
+                }
+            };
         }
 
-        // Initialize theme on page load
-        loadSavedTheme();
+        function jiggleMouse() {
+            console.log(`🐭 Enhanced jiggler activated at ${new Date().toLocaleTimeString()}`);
+            
+            // Enhanced activity methods with more aggressive techniques
+            const methods = [
+                () => {
+                    // Method 1: Multiple mouse events with strategic coordinates
+                    const coords = [
+                        { x: Math.floor(Math.random() * window.innerWidth), y: Math.floor(Math.random() * window.innerHeight) },
+                        { x: window.innerWidth / 2, y: window.innerHeight / 2 },
+                        { x: 1, y: 1 },
+                        { x: window.innerWidth - 1, y: window.innerHeight - 1 },
+                        { x: 100, y: 100 } // Fixed position for consistency
+                    ];
+                    
+                    coords.forEach((coord, i) => {
+                        setTimeout(() => {
+                            ['mousemove', 'mousedown', 'mouseup', 'click'].forEach(eventType => {
+                                const event = new MouseEvent(eventType, {
+                                    view: window,
+                                    bubbles: true,
+                                    cancelable: true,
+                                    clientX: coord.x,
+                                    clientY: coord.y,
+                                    screenX: coord.x + window.screenX,
+                                    screenY: coord.y + window.screenY,
+                                    buttons: eventType === 'mousedown' ? 1 : 0,
+                                    button: 0
+                                });
+                                document.dispatchEvent(event);
+                                document.body.dispatchEvent(event);
+                                if (invisibleArea) invisibleArea.dispatchEvent(event);
+                            });
+                        }, i * 20);
+                    });
+                },
+                
+                () => {
+                    // Method 2: Multiple keyboard events (function keys)
+                    const keys = ['F15', 'F16', 'F17', 'F18', 'F19', 'F20', 'F21', 'F22'];
+                    keys.forEach((key, i) => {
+                        setTimeout(() => {
+                            ['keydown', 'keypress', 'keyup'].forEach((eventType, j) => {
+                                const event = new KeyboardEvent(eventType, {
+                                    key: key,
+                                    code: key,
+                                    which: 126 + i,
+                                    keyCode: 126 + i,
+                                    bubbles: true,
+                                    cancelable: true,
+                                    view: window
+                                });
+                                document.dispatchEvent(event);
+                                window.dispatchEvent(event);
+                            });
+                        }, i * 25);
+                    });
+                },
+                
+                () => {
+                    // Method 3: Focus cycling and window events
+                    const elements = [window, document, document.body, document.documentElement];
+                    elements.forEach((element, i) => {
+                        setTimeout(() => {
+                            try {
+                                if (element.focus) element.focus();
+                                setTimeout(() => {
+                                    if (element.blur) element.blur();
+                                }, 15);
+                                
+                                // Window focus events
+                                ['focus', 'blur'].forEach(eventType => {
+                                    const event = new FocusEvent(eventType, { bubbles: true });
+                                    if (element.dispatchEvent) element.dispatchEvent(event);
+                                });
+                            } catch (e) {
+                                console.log('Focus method partial failure:', e.message);
+                            }
+                        }, i * 30);
+                    });
+                },
+                
+                () => {
+                    // Method 4: Create and interact with multiple temporary elements
+                    for (let i = 0; i < 5; i++) {
+                        setTimeout(() => {
+                            const elementTypes = ['input', 'button', 'div', 'span'];
+                            const element = document.createElement(elementTypes[i % elementTypes.length]);
+                            element.style.position = 'absolute';
+                            element.style.left = '-9999px';
+                            element.style.top = '-9999px';
+                            element.style.opacity = '0';
+                            element.style.pointerEvents = 'auto';
+                            
+                            if (element.tagName === 'INPUT') {
+                                element.type = 'text';
+                                element.value = `activity${i}`;
+                            }
+                            
+                            document.body.appendChild(element);
+                            
+                            // Interact with element
+                            element.focus();
+                            element.click();
+                            
+                            if (element.tagName === 'INPUT') {
+                                element.select();
+                                const inputEvent = new InputEvent('input', { bubbles: true });
+                                element.dispatchEvent(inputEvent);
+                            }
+                            
+                            setTimeout(() => {
+                                try {
+                                    element.blur();
+                                    if (element.parentNode) {
+                                        element.parentNode.removeChild(element);
+                                    }
+                                } catch (e) {
+                                    console.log('Element cleanup minor issue:', e.message);
+                                }
+                            }, 100);
+                        }, i * 40);
+                    }
+                },
+                
+                () => {
+                    // Method 5: Page interaction and scroll simulation
+                    setTimeout(() => {
+                        const currentScroll = window.scrollY;
+                        
+                        // Multiple scroll actions
+                        window.scrollBy(0, 1);
+                        setTimeout(() => window.scrollBy(0, -1), 25);
+                        
+                        // Wheel events
+                        const wheelEvent = new WheelEvent('wheel', {
+                            deltaY: Math.random() > 0.5 ? 1 : -1,
+                            deltaX: 0,
+                            bubbles: true,
+                            cancelable: true
+                        });
+                        document.dispatchEvent(wheelEvent);
+                        
+                        // Page visibility and resize events
+                        setTimeout(() => {
+                            const resizeEvent = new Event('resize');
+                            window.dispatchEvent(resizeEvent);
+                        }, 50);
+                    }, 10);
+                },
+                
+                () => {
+                    // Method 6: Touch events for comprehensive coverage
+                    const touchEvents = ['touchstart', 'touchmove', 'touchend'];
+                    touchEvents.forEach((eventType, i) => {
+                        setTimeout(() => {
+                            try {
+                                const touch = new Touch({
+                                    identifier: i,
+                                    target: document.body,
+                                    clientX: Math.random() * window.innerWidth,
+                                    clientY: Math.random() * window.innerHeight
+                                });
+                                
+                                const touchList = eventType === 'touchend' ? [] : [touch];
+                                const touchEvent = new TouchEvent(eventType, {
+                                    touches: touchList,
+                                    targetTouches: touchList,
+                                    changedTouches: [touch],
+                                    bubbles: true,
+                                    cancelable: true
+                                });
+                                
+                                document.dispatchEvent(touchEvent);
+                                document.body.dispatchEvent(touchEvent);
+                            } catch (e) {
+                                console.log('Touch events not supported:', e.message);
+                            }
+                        }, i * 30);
+                    });
+                },
 
-        // Update slider value displays
-        intervalSlider.addEventListener('input', function() {
-            intervalValue.textContent = this.value + ' seconds';
-        });
+                () => {
+                    // Method 7: Pointer events (modern approach)
+                    const pointerEvents = ['pointerdown', 'pointermove', 'pointerup'];
+                    pointerEvents.forEach((eventType, i) => {
+                        setTimeout(() => {
+                            const event = new PointerEvent(eventType, {
+                                pointerId: 1,
+                                clientX: Math.random() * window.innerWidth,
+                                clientY: Math.random() * window.innerHeight,
+                                bubbles: true,
+                                cancelable: true,
+                                isPrimary: true
+                            });
+                            document.dispatchEvent(event);
+                        }, i * 20);
+                    });
+                }
+            ];
 
-        distanceSlider.addEventListener('input', function() {
-            distanceValue.textContent = this.value + ' pixels';
-        });
+            // Execute all methods with staggered timing
+            methods.forEach((method, index) => {
+                setTimeout(() => {
+                    try {
+                        method();
+                        console.log(`✅ Enhanced activity method ${index + 1} executed successfully`);
+                    } catch (error) {
+                        console.log(`❌ Enhanced activity method ${index + 1} failed:`, error.message);
+                    }
+                }, index * 100);
+            });
+
+            jigglesPerformed++;
+            jigglesCount.textContent = jigglesPerformed;
+            updateUptime();
+            
+            // Force page activity indicators
+            if (document.hidden) {
+                console.log('⚠️ Page is hidden - maintaining background activity');
+                backgroundStatus.textContent = 'Background (Active)';
+                backgroundStatus.style.background = 'rgba(255, 165, 0, 0.8)';
+            } else {
+                backgroundStatus.textContent = 'Foreground';
+                backgroundStatus.style.background = 'rgba(0, 128, 0, 0.8)';
+            }
+            
+            activityIndicator.style.background = '#00ff00';
+            setTimeout(() => {
+                activityIndicator.style.background = isActive ? '#00ff00' : '#ff6b6b';
+            }, 500);
+        }
 
         function startJiggler() {
             if (isActive) return;
@@ -547,20 +797,29 @@
             startTime = Date.now();
             jigglesPerformed = 0;
             
-            statusEl.textContent = 'Active - Mouse jiggling every ' + intervalSlider.value + ' seconds';
+            statusEl.textContent = 'Active - Enhanced background-resistant jiggling every ' + intervalSlider.value + ' seconds';
             statusEl.className = 'status active';
             
             startBtn.style.display = 'none';
             stopBtn.style.display = 'inline-block';
             
-            // Start jiggling
-            jiggleInterval = setInterval(jiggleMouse, intervalSlider.value * 1000);
+            // Use background-resistant timer
+            jiggleInterval = createBackgroundResistantTimer(jiggleMouse, intervalSlider.value * 1000);
             
             // Start uptime counter
             uptimeInterval = setInterval(updateUptime, 1000);
             
+            // Add visibility change handler
+            document.addEventListener('visibilitychange', handleVisibilityChange);
+            
             // Initial jiggle
             jiggleMouse();
+            
+            console.log(`🚀 Enhanced mouse jiggler started with ${intervalSlider.value}s interval`);
+            console.log('📊 Using multiple background-resistant timing methods');
+            
+            // Request wake lock if available
+            requestWakeLock();
         }
 
         function stopJiggler() {
@@ -568,167 +827,18 @@
             
             isActive = false;
             
-            clearInterval(jiggleInterval);
+            if (jiggleInterval) {
+                jiggleInterval.stop();
+                jiggleInterval = null;
+            }
+            
             clearInterval(uptimeInterval);
+            clearInterval(pageActivityInterval);
             
             statusEl.textContent = 'Inactive - Click Start to begin';
             statusEl.className = 'status inactive';
             
             startBtn.style.display = 'inline-block';
             stopBtn.style.display = 'none';
-        }
-
-        function jiggleMouse() {
-            const distance = parseInt(distanceSlider.value);
             
-            // Multiple methods to ensure activity detection
-            
-            // Method 1: Create and move a temporary invisible element
-            const tempEl = document.createElement('div');
-            tempEl.style.position = 'fixed';
-            tempEl.style.left = '-1px';
-            tempEl.style.top = '-1px';
-            tempEl.style.width = '1px';
-            tempEl.style.height = '1px';
-            tempEl.style.pointerEvents = 'auto';
-            tempEl.style.zIndex = '9999';
-            tempEl.style.opacity = '0';
-            document.body.appendChild(tempEl);
-            
-            // Method 2: Multiple mousemove events with different coordinates
-            const events = [];
-            for (let i = 0; i < 3; i++) {
-                const x = Math.max(1, Math.min(window.innerWidth - 1, Math.random() * window.innerWidth));
-                const y = Math.max(1, Math.min(window.innerHeight - 1, Math.random() * window.innerHeight));
-                
-                events.push(new MouseEvent('mousemove', {
-                    clientX: x,
-                    clientY: y,
-                    screenX: x,
-                    screenY: y,
-                    bubbles: true,
-                    cancelable: true,
-                    view: window
-                }));
-            }
-            
-            // Dispatch events with slight delays
-            events.forEach((event, index) => {
-                setTimeout(() => {
-                    document.dispatchEvent(event);
-                    tempEl.dispatchEvent(event);
-                    
-                    // Also dispatch on the body and container
-                    document.body.dispatchEvent(event);
-                    if (document.querySelector('.container')) {
-                        document.querySelector('.container').dispatchEvent(event);
-                    }
-                }, index * 50);
-            });
-            
-            // Method 3: Focus and blur events to simulate activity
-            if (document.activeElement && document.activeElement !== document.body) {
-                document.activeElement.blur();
-                setTimeout(() => {
-                    if (document.activeElement) {
-                        document.activeElement.focus();
-                    }
-                }, 100);
-            }
-            
-            // Method 4: Keyboard events (very subtle)
-            const keyEvent = new KeyboardEvent('keydown', {
-                key: 'F15', // F15 is rarely used and shouldn't interfere
-                code: 'F15',
-                bubbles: true,
-                cancelable: true
-            });
-            document.dispatchEvent(keyEvent);
-            
-            // Method 5: Mouse down/up sequence
-            setTimeout(() => {
-                const mouseDown = new MouseEvent('mousedown', {
-                    clientX: 1,
-                    clientY: 1,
-                    button: 0,
-                    bubbles: true
-                });
-                const mouseUp = new MouseEvent('mouseup', {
-                    clientX: 1,
-                    clientY: 1,
-                    button: 0,
-                    bubbles: true
-                });
-                
-                tempEl.dispatchEvent(mouseDown);
-                setTimeout(() => {
-                    tempEl.dispatchEvent(mouseUp);
-                }, 10);
-            }, 150);
-            
-            // Clean up temporary element
-            setTimeout(() => {
-                if (tempEl.parentNode) {
-                    tempEl.parentNode.removeChild(tempEl);
-                }
-            }, 500);
-            
-            jigglesPerformed++;
-            jigglesCount.textContent = jigglesPerformed;
-            
-            // Log activity for debugging
-            console.log(`Jiggle #${jigglesPerformed} at ${new Date().toLocaleTimeString()}`);
-        }
-
-        function updateUptime() {
-            if (!isActive) return;
-            
-            const elapsed = Date.now() - startTime;
-            const hours = Math.floor(elapsed / 3600000);
-            const minutes = Math.floor((elapsed % 3600000) / 60000);
-            const seconds = Math.floor((elapsed % 60000) / 1000);
-            
-            uptime.textContent = 
-                String(hours).padStart(2, '0') + ':' +
-                String(minutes).padStart(2, '0') + ':' +
-                String(seconds).padStart(2, '0');
-        }
-
-        // Prevent the page from being put to sleep
-        let wakeLock = null;
-
-        async function requestWakeLock() {
-            try {
-                if ('wakeLock' in navigator) {
-                    wakeLock = await navigator.wakeLock.request('screen');
-                }
-            } catch (err) {
-                // Wake lock not supported or failed
-                console.log('Wake lock not available');
-            }
-        }
-
-        // Try to request wake lock when starting
-        startBtn.addEventListener('click', requestWakeLock);
-
-        // Handle visibility change
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible' && isActive && !wakeLock) {
-                requestWakeLock();
-            }
-        });
-
-        // Keyboard shortcuts
-        document.addEventListener('keydown', function(e) {
-            if (e.code === 'Space') {
-                e.preventDefault();
-                if (isActive) {
-                    stopJiggler();
-                } else {
-                    startJiggler();
-                }
-            }
-        });
-    </script>
-</body>
-</html>
+            document.removeEventListener('visibilitychange', handleVisibility
