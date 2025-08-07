@@ -841,4 +841,215 @@
             startBtn.style.display = 'inline-block';
             stopBtn.style.display = 'none';
             
-            document.removeEventListener('visibilitychange', handleVisibility
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            
+            activityIndicator.style.background = '#ff6b6b';
+            backgroundStatus.textContent = 'Inactive';
+            backgroundStatus.style.background = 'rgba(255, 107, 107, 0.8)';
+            
+            console.log('🛑 Enhanced mouse jiggler stopped');
+        }
+
+        function handleVisibilityChange() {
+            if (document.hidden) {
+                console.log('🕳️ Tab went to background - enhanced jiggler continues running');
+                backgroundStatus.textContent = 'Background (Active)';
+                backgroundStatus.style.background = 'rgba(255, 165, 0, 0.8)';
+                // Force an immediate jiggle when going to background
+                if (isActive) {
+                    setTimeout(jiggleMouse, 1000);
+                }
+            } else {
+                console.log('👁️ Tab became foreground again');
+                backgroundStatus.textContent = 'Foreground';
+                backgroundStatus.style.background = 'rgba(0, 128, 0, 0.8)';
+            }
+        }
+
+        // Page activity maintenance (keep page "alive")
+        function maintainPageActivity() {
+            // Micro-movements and events to keep the page active
+            if (document.hidden && isActive) {
+                // Additional background activity
+                const event = new MouseEvent('mousemove', {
+                    clientX: Math.random() * 10,
+                    clientY: Math.random() * 10,
+                    bubbles: true
+                });
+                document.dispatchEvent(event);
+            }
+            
+            // Update activity indicator
+            activityIndicator.style.background = isActive ? '#00ff00' : '#ff6b6b';
+            
+            // Mini scroll to maintain activity (invisible)
+            const currentScroll = window.scrollY;
+            window.scrollTo(0, currentScroll + (Math.random() > 0.5 ? 0.1 : -0.1));
+            setTimeout(() => window.scrollTo(0, currentScroll), 50);
+        }
+
+        function updateUptime() {
+            if (!isActive) return;
+            
+            const elapsed = Date.now() - startTime;
+            const hours = Math.floor(elapsed / 3600000);
+            const minutes = Math.floor((elapsed % 3600000) / 60000);
+            const seconds = Math.floor((elapsed % 60000) / 1000);
+            
+            uptime.textContent = 
+                String(hours).padStart(2, '0') + ':' +
+                String(minutes).padStart(2, '0') + ':' +
+                String(seconds).padStart(2, '0');
+        }
+
+        // Theme bubble toggle
+        themeToggle.addEventListener('click', function(e) {
+            e.stopPropagation();
+            themePanel.classList.toggle('active');
+        });
+
+        // Close theme panel when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!themePanel.contains(e.target) && !themeToggle.contains(e.target)) {
+                themePanel.classList.remove('active');
+            }
+        });
+
+        // Prevent panel from closing when clicking inside it
+        themePanel.addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
+
+        // Theme handling
+        document.querySelectorAll('.theme-option').forEach(option => {
+            option.addEventListener('click', function() {
+                const theme = this.dataset.theme;
+                setTheme(theme);
+            });
+        });
+
+        color1Input.addEventListener('input', updateCustomTheme);
+        color2Input.addEventListener('input', updateCustomTheme);
+
+        function setTheme(theme) {
+            // Remove all theme classes
+            document.body.className = document.body.className.replace(/theme-\w+/g, '');
+            
+            // Remove active class from all theme options
+            document.querySelectorAll('.theme-option').forEach(opt => opt.classList.remove('active'));
+            
+            // Add new theme class
+            document.body.classList.add('theme-' + theme);
+            
+            // Mark theme as active
+            const activeOption = document.querySelector(`.theme-option[data-theme="${theme}"]`);
+            if (activeOption) {
+                activeOption.classList.add('active');
+            }
+            
+            currentTheme = theme;
+            
+            // Save preference
+            try {
+                localStorage.setItem('mouseJigglerTheme', theme);
+                if (theme === 'custom') {
+                    localStorage.setItem('mouseJigglerColor1', color1Input.value);
+                    localStorage.setItem('mouseJigglerColor2', color2Input.value);
+                }
+            } catch (e) {
+                console.log('LocalStorage not available');
+            }
+        }
+
+        function updateCustomTheme() {
+            const color1 = color1Input.value;
+            const color2 = color2Input.value;
+            
+            document.body.style.background = `linear-gradient(135deg, ${color1} 0%, ${color2} 100%)`;
+            document.body.className = document.body.className.replace(/theme-\w+/g, '');
+            document.body.classList.add('theme-custom');
+            
+            // Remove active class from preset themes
+            document.querySelectorAll('.theme-option').forEach(opt => opt.classList.remove('active'));
+            
+            currentTheme = 'custom';
+            
+            // Save custom colors
+            try {
+                localStorage.setItem('mouseJigglerTheme', 'custom');
+                localStorage.setItem('mouseJigglerColor1', color1);
+                localStorage.setItem('mouseJigglerColor2', color2);
+            } catch (e) {
+                console.log('LocalStorage not available');
+            }
+        }
+
+        // Load saved theme on page load
+        function loadSavedTheme() {
+            try {
+                const savedTheme = localStorage.getItem('mouseJigglerTheme');
+                if (savedTheme) {
+                    if (savedTheme === 'custom') {
+                        const savedColor1 = localStorage.getItem('mouseJigglerColor1');
+                        const savedColor2 = localStorage.getItem('mouseJigglerColor2');
+                        if (savedColor1 && savedColor2) {
+                            color1Input.value = savedColor1;
+                            color2Input.value = savedColor2;
+                            updateCustomTheme();
+                        }
+                    } else {
+                        setTheme(savedTheme);
+                    }
+                }
+            } catch (e) {
+                console.log('LocalStorage not available, using default theme');
+            }
+        }
+
+        // Update slider value displays
+        intervalSlider.addEventListener('input', function() {
+            intervalValue.textContent = this.value + ' seconds';
+        });
+
+        distanceSlider.addEventListener('input', function() {
+            distanceValue.textContent = this.value + ' pixels';
+        });
+
+        // Prevent the page from being put to sleep
+        let wakeLock = null;
+
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('🔒 Wake lock acquired');
+                }
+            } catch (err) {
+                console.log('⚠️ Wake lock not available:', err);
+            }
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.code === 'Space' && !e.target.matches('input, textarea, button')) {
+                e.preventDefault();
+                if (isActive) {
+                    stopJiggler();
+                } else {
+                    startJiggler();
+                }
+            }
+        });
+
+        // Initialize theme and start page activity maintenance
+        loadSavedTheme();
+        
+        // Start page activity maintenance immediately
+        pageActivityInterval = setInterval(maintainPageActivity, 2000);
+        maintainPageActivity();
+
+        console.log('🚀 Enhanced Mouse Jiggler loaded successfully');
+        console.log('💡 Features: Background resistance, multiple activity methods, enhanced Teams compatibility');
+    </script>
+</body>
+</html>
